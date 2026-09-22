@@ -1,0 +1,43 @@
+name: Daily Job Pipeline Ecuador
+
+on:
+  schedule:
+    # Se ejecuta todos los días a las 13:00 UTC (08:00 AM hora de Ecuador)
+    - cron: '0 13 * * *'
+  workflow_dispatch: # Permite ejecutar el robot manualmente con un botón cuando quieras
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write # Permiso para guardar la base de datos actualizada en el repositorio
+
+    steps:
+      - name: 1. Descargar el repositorio
+        uses: actions/checkout@v4
+
+      - name: 2. Configurar el entorno de Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: 3. Instalar librerías
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: 4. Ejecutar el orquestador de empleo
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python main.py
+
+      - name: 5. Guardar memoria de vacantes (Base de Datos)
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add jobs_tracker.db
+          git diff --quiet && git diff --staged --quiet || (git commit -m "chore: sincronizar base de datos de vacantes [skip ci]" && git push)
